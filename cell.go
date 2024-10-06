@@ -24,7 +24,7 @@ func (g *Grid) fillRandom() {
 		for j := 0; j < len(g.cells[i]); j++ {
 			randBool := rand.Intn(2) == 0
 
-			fmt.Printf("(%d, %d) - %t\n", i, j, randBool)
+			//fmt.Printf("(%d, %d) - %t\n", i, j, randBool)
 			g.cells[i][j] = *NewCell(i, j, randBool)
 		}
 	}
@@ -44,27 +44,30 @@ func (g *Grid) print() {
 }
 
 type Cell struct {
-	row        int
-	col        int
-	alive      bool
-	nextState  bool
-	grid       [][]Cell
-	generation chan int
-	mutex      *sync.Mutex
-	barrier    *sync.WaitGroup
+	row            int
+	col            int
+	alive          bool
+	nextState      bool
+	grid           [][]Cell
+	generation     chan int
+	mutex          *sync.Mutex
+	computeBarrier *sync.WaitGroup
+	updateBarrier  *sync.WaitGroup
 }
 
 func NewCell(row, col int, alive bool) *Cell {
-	return &Cell{row: row, col: col, alive: alive, mutex: &sync.Mutex{}, barrier: &sync.WaitGroup{}, generation: make(chan int)}
+	return &Cell{row: row, col: col, alive: alive, mutex: &sync.Mutex{}, computeBarrier: &sync.WaitGroup{}, updateBarrier: &sync.WaitGroup{}, generation: make(chan int)}
 }
 
 func (c *Cell) Run() {
 	for gen := range c.generation {
 		c.ComputeNextState()
-		c.barrier.Done()
-		c.barrier.Wait()
+		c.computeBarrier.Done()
+		c.computeBarrier.Wait()
+
 		c.UpdateState()
-		c.barrier.Done()
+		c.updateBarrier.Done()
+		c.updateBarrier.Wait()
 		if gen == GENERATIONS-1 {
 			close(c.generation)
 		}
